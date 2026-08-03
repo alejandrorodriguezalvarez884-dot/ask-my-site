@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Real credentials (see .env.example for the template) - never commit actual values
+.env
+
+# OS
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# Editor
+.vscode/
+.idea/
+
+# Per-deployment content - keep the repo a clean, reusable template.
+# Real deployments copy config/site.example.yaml to config/site.yaml and fill it in,
+# and drop their own documents into context/.
+config/site.yaml
+context/*
+!context/.gitkeep

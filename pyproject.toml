@@ -1,0 +1,32 @@
+[project]
+name = "ask-my-site"
+version = "0.1.0"
+description = "Reusable backend for a website AI assistant: answers visitor questions using the site's own persona plus whatever documents you drop into context/."
+requires-python = ">=3.11"
+dependencies = [
+    "anthropic>=0.40",
+    "fastapi>=0.115",
+    "pydantic>=2.9",
+    "pydantic-settings>=2.6",
+    "python-dotenv>=1.0",
+    "pyyaml>=6.0",
+    "rank-bm25>=0.2.2",
+    "uvicorn[standard]>=0.32",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+
+[tool.uv]
+# This ships as a service (Docker image / uvicorn process), not a published/installed Python
+# package - no [build-system], so uv treats it as a plain application and only manages the
+# venv/deps. Code lives under src/ for layout/import-path reasons only.
+package = false
+
+[dependency-groups]
+dev = [
+    "httpx>=0.27",
+    "pytest>=8.3",
+    "ruff>=0.16.0",
+]

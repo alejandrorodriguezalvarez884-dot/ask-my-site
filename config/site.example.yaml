@@ -1,0 +1,16 @@
+# Copy this file to config/site.yaml (gitignored) and fill it in for your own site.
+# This is the assistant's "own context": who it's speaking for, independent of whatever
+# extra documents you drop into context/.
+
+name: "Your Name"
+role: "Your role / specialty"
+about: |
+  Two or three sentences describing who you are and what this site is about. Written in
+  whatever voice you want the assistant to answer in - first person if it should speak as
+  you, third person if it should speak about you.
+tone: "friendly, concise, and professional"
+
+links:
+  website: "https://your-site.com"
+  github: "https://github.com/your-username"
+  linkedin: "https://linkedin.com/in/your-username"
