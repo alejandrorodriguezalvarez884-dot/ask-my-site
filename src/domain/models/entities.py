@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -20,3 +21,20 @@ class SiteConfig(BaseModel):
 class ChatTurn(BaseModel):
     role: Literal["user", "assistant"]
     content: str
+
+
+@dataclass(frozen=True)
+class Chunk:
+    text: str
+    # File path relative to the context directory (e.g. "cv.md"), or a fixed label like
+    # "site_config" for chunks that came from config/site.yaml instead of a dropped-in file.
+    source: str
+
+
+class ChatRequest(BaseModel):
+    message: str = Field(min_length=1)
+    history: list[ChatTurn] = Field(default_factory=list)
+
+
+class ChatResponse(BaseModel):
+    reply: str

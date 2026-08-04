@@ -1,5 +1,4 @@
-from assistant.models import SiteConfig
-from context.models import Chunk
+from src.domain.models.entities import Chunk, SiteConfig
 
 _BASE_INSTRUCTIONS = (
     "You are an AI assistant embedded on {name}'s website. Answer visitor questions "

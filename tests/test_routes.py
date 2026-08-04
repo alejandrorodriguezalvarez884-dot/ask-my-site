@@ -2,9 +2,9 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from api.app import create_app
-from api.settings import Settings
-from assistant.models import ChatTurn
+from app import create_app
+from src.domain.models.entities import ChatTurn
+from src.infrastructure.settings import Settings
 
 
 class _StubAssistant:

@@ -1,6 +1,5 @@
-from assistant.models import SiteConfig
-from assistant.persona import build_system_prompt
-from context.models import Chunk
+from src.domain.models.entities import Chunk, SiteConfig
+from src.domain.persona import build_system_prompt
 
 
 def test_prompt_includes_name_role_and_context() -> None:

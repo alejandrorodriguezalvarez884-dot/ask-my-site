@@ -1,5 +1,5 @@
-from context.models import Chunk
-from context.retriever import BM25Retriever
+from src.domain.models.entities import Chunk
+from src.infrastructure.bm25_retriever import BM25Retriever
 
 
 def test_search_ranks_the_relevant_chunk_first() -> None:

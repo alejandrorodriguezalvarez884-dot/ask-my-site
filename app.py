@@ -3,20 +3,21 @@ import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from api.routes import router
-from api.settings import Settings
-from assistant.config import load_site_config
-from assistant.llm import ClaudeAssistant
-from context.loader import load_context_documents
-from context.retriever import BM25Retriever
-from utils.logging_config import configure_logging
+from src.controllers import router
+from src.infrastructure.bm25_retriever import BM25Retriever
+from src.infrastructure.context_loader import load_context_documents
+from src.infrastructure.llm_client import ClaudeAssistant
+from src.infrastructure.logging_config import configure_logging
+from src.infrastructure.settings import Settings
+from src.infrastructure.site_config_loader import load_site_config
 
 logger = logging.getLogger(__name__)
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     """App factory - settings can be injected (see tests/test_routes.py) instead of being
-    read from the environment, so tests never need a real .env or a real Anthropic key."""
+    read from the environment, so tests never need a real .env or a real Anthropic key.
+    """
     configure_logging()
     settings = settings or Settings()
 
@@ -45,3 +46,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app.include_router(router)
     return app
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run(create_app(), host="0.0.0.0", port=8000)

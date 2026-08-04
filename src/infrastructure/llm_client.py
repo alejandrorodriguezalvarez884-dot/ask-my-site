@@ -1,6 +1,6 @@
 from anthropic import Anthropic
 
-from assistant.models import ChatTurn
+from src.domain.models.entities import ChatTurn
 
 
 class ClaudeAssistant:

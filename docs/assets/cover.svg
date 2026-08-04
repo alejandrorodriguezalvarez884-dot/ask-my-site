@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640">
+  <defs>
+    <pattern id="dots" width="24" height="24" patternUnits="userSpaceOnUse">
+      <circle cx="1.5" cy="1.5" r="1.5" fill="#E3E3DA"/>
+    </pattern>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="10" stdDeviation="18" flood-color="#2A2A24" flood-opacity="0.10"/>
+    </filter>
+    <filter id="soft2" x="-30%" y="-30%" width="160%" height="180%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#2A2A24" flood-opacity="0.07"/>
+    </filter>
+    <linearGradient id="fade" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FCFCFA"/>
+      <stop offset="100%" stop-color="#F5F4EF"/>
+    </linearGradient>
+  </defs>
+
+  <!-- background -->
+  <rect width="1280" height="640" fill="url(#fade)"/>
+  <rect width="1280" height="640" fill="url(#dots)" opacity="0.55"/>
+  <circle cx="1130" cy="90" r="220" fill="#D97757" opacity="0.06"/>
+  <circle cx="150" cy="600" r="170" fill="#D97757" opacity="0.05"/>
+
+  <!-- ================= LEFT ================= -->
+  <g transform="translate(96,168)">
+    <!-- eyebrow -->
+    <rect x="0" y="-2" width="10" height="10" rx="2" fill="#D97757"/>
+    <text x="24" y="8" xml:space="preserve" font-family="DejaVu Sans Mono" font-size="14" fill="#8C8C82">A I  S I T E  A S S I S T A N T</text>
+
+    <!-- title -->
+    <text x="0" y="88" font-family="Inter Semi Bold" font-size="82" fill="#1B1B18">ask-my-site</text>
+    <rect x="2" y="112" width="96" height="5" rx="2.5" fill="#D97757"/>
+
+    <!-- subtitle -->
+    <text x="0" y="172" font-family="Inter Light" font-size="25" fill="#57574F">A drop-in backend that answers visitor</text>
+    <text x="0" y="208" font-family="Inter Light" font-size="25" fill="#57574F">questions about you and your site —</text>
+    <text x="0" y="244" font-family="Inter Light" font-size="25" fill="#57574F">grounded in your own documents.</text>
+
+    <!-- chips -->
+    <g font-family="DejaVu Sans Mono" font-size="14" fill="#6E6E64" text-anchor="middle">
+      <rect x="0" y="288" width="98" height="34" rx="17" fill="#FFFFFF" stroke="#E4E4DB"/>
+      <text x="49" y="310">FastAPI</text>
+
+      <rect x="112" y="288" width="90" height="34" rx="17" fill="#FFFFFF" stroke="#E4E4DB"/>
+      <text x="157" y="310">BM25</text>
+
+      <rect x="214" y="288" width="102" height="34" rx="17" fill="#FFFFFF" stroke="#E4E4DB"/>
+      <text x="265" y="310">Claude</text>
+    </g>
+  </g>
+
+  <!-- ================= RIGHT: chat card ================= -->
+  <g filter="url(#soft)">
+    <rect x="680" y="96" width="512" height="448" rx="22" fill="#FFFFFF" stroke="#EBEBE3"/>
+  </g>
+
+  <!-- card header -->
+  <circle cx="712" cy="134" r="5" fill="#E5E5DC"/>
+  <circle cx="730" cy="134" r="5" fill="#E5E5DC"/>
+  <circle cx="748" cy="134" r="5" fill="#E5E5DC"/>
+  <text x="1160" y="139" text-anchor="end" font-family="DejaVu Sans Mono" font-size="12" fill="#A6A69B">POST /chat</text>
+  <line x1="680" y1="162" x2="1192" y2="162" stroke="#F0F0E9"/>
+
+  <!-- user bubble -->
+  <g filter="url(#soft2)">
+    <rect x="852" y="192" width="308" height="52" rx="16" fill="#D97757"/>
+  </g>
+  <text x="876" y="224" font-family="Inter" font-size="17" fill="#FFFFFF">What does Alex actually work on?</text>
+
+  <!-- assistant avatar -->
+  <circle cx="726" cy="284" r="15" fill="#F1F0EA" stroke="#E4E4DB"/>
+  <circle cx="726" cy="284" r="5" fill="#D97757"/>
+
+  <!-- assistant bubble -->
+  <rect x="752" y="266" width="378" height="132" rx="16" fill="#F5F5F0"/>
+  <text x="776" y="300" font-family="Inter" font-size="17" fill="#33332E">Backend engineering in Python —</text>
+  <text x="776" y="328" font-family="Inter" font-size="17" fill="#33332E">FastAPI services, retrieval pipelines</text>
+  <text x="776" y="356" font-family="Inter" font-size="17" fill="#33332E">and LLM integrations.</text>
+  <rect x="776" y="368" width="132" height="22" rx="11" fill="#FFFFFF" stroke="#E4E4DB"/>
+  <text x="788" y="383" font-family="DejaVu Sans Mono" font-size="11" fill="#8C8C82">context/cv.md</text>
+
+  <!-- input row -->
+  <rect x="712" y="446" width="448" height="52" rx="26" fill="#FCFCFA" stroke="#E8E8E0"/>
+  <text x="740" y="478" font-family="Inter Light" font-size="16" fill="#A6A69B">Ask anything about me…</text>
+  <circle cx="1128" cy="472" r="17" fill="#D97757"/>
+  <path d="M1121 472 h13 M1129 467 l6 5 -6 5" stroke="#FFFFFF" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

@@ -1,5 +1,7 @@
 # ask-my-site
 
+![ask-my-site](docs/assets/cover.png)
+
 A reusable backend for a website AI assistant: a small HTTP API, callable from any frontend,
 that answers visitor questions using **two sources of context** —
 
@@ -45,7 +47,7 @@ ClaudeAssistant.reply(system_prompt, history, message)   # single call to the An
 Retrieval is lexical (BM25 over keyword overlap, via `rank-bm25`), not embedding-based —
 deliberately, the same call made in `custom-llm-finetuning`: for the handful of documents a
 personal or small-business site's assistant realistically needs, BM25 needs no model
-download and no vector store, and is good enough. `context/models.py`'s `Retriever`
+download and no vector store, and is good enough. `src/domain/retriever.py`'s `Retriever`
 interface exists so an embedding-based implementation can be swapped in later, behind the
 same `index()`/`search()` contract, if the context ever grows large enough for that to matter.
 
@@ -54,39 +56,47 @@ same `index()`/`search()` contract, if the context ever grows large enough for t
 ```
 config/site.example.yaml  # Template for config/site.yaml (gitignored) - the assistant's persona
 context/.gitkeep          # context/*.md and context/*.txt (gitignored) get indexed at startup
+app.py                     # create_app(): wires settings + site config + retriever + LLM client;
+                           # also the uvicorn entrypoint
 src/
-  api/
-    settings.py     # Settings: env vars (ANTHROPIC_API_KEY, ALLOWED_ORIGINS, etc.)
-    schemas.py      # ChatRequest / ChatResponse (the public HTTP contract)
-    routes.py       # GET /health, POST /chat
-    app.py          # create_app(): wires settings + site config + retriever + LLM client
-  assistant/
-    models.py       # SiteConfig, ChatTurn
-    config.py       # load_site_config(): reads config/site.yaml
-    persona.py      # build_system_prompt(): persona + retrieved chunks -> system prompt
-    llm.py          # ClaudeAssistant: the only module that calls the Anthropic API
-  context/
-    models.py       # Chunk, Retriever interface
-    loader.py       # load_context_documents(): reads context/ into Chunks
-    retriever.py    # BM25Retriever: the default Retriever implementation
-  utils/logging_config.py   # configure_logging()
+  controllers/
+    chat_controller.py    # GET /health, POST /chat - HTTP layer only
+  domain/
+    models/
+      entities.py         # SiteConfig, ChatTurn, Chunk, ChatRequest, ChatResponse
+    persona.py             # build_system_prompt(): persona + retrieved chunks -> system prompt
+    retriever.py           # Retriever interface
+    repositories/
+      chat_repository.py  # business logic: retrieval + prompt assembly + the LLM call
+  infrastructure/
+    settings.py            # Settings: env vars (ANTHROPIC_API_KEY, ALLOWED_ORIGINS, etc.)
+    site_config_loader.py  # load_site_config(): reads config/site.yaml
+    context_loader.py      # load_context_documents(): reads context/ into Chunks
+    bm25_retriever.py      # BM25Retriever: the default Retriever implementation
+    llm_client.py          # ClaudeAssistant: the only module that calls the Anthropic API
+    logging_config.py      # configure_logging()
+  service_layer/
+    chat_service.py        # thin orchestration: unpacks the request, packs the response
 tests/               # Unit tests - no live network calls (ClaudeAssistant is stubbed
                      # out in test_routes.py; nothing else touches the network)
 Dockerfile           # uv-managed image; config/ and context/ are usually bind-mounted
                      # in at runtime instead of baked in (see `make docker-run`)
 ```
 
-`api`, `assistant`, and `context` are top-level packages directly under `src/`, each with its
-own `models.py` for interfaces/schemas and separate files for the actual logic next to it —
-same layout convention as `smr-autodata-phase1-ingestion`'s `connectors`/`storage`/`catalog`.
+Layered architecture: `controllers` (HTTP) call `service_layer` (unpack/pack request-response
+DTOs), which calls `domain/repositories` (business logic - retrieval, prompt assembly),
+which calls `infrastructure` (external I/O - the Anthropic API, the filesystem, env vars).
+`domain/models` and `domain/retriever.py` hold the shared data shapes and interfaces every
+layer depends on.
 
 ## Running locally (without Docker)
 
 Environment is managed with [uv](https://docs.astral.sh/uv/) — `pyproject.toml` + `uv.lock`
 are the source of truth, no `requirements*.txt`. This isn't an installed package (see
-`[tool.uv] package = false` in `pyproject.toml`), so `src/` needs to be on `PYTHONPATH` to run
-the server directly — `pytest` doesn't need this, it gets `src/` from
-`[tool.pytest.ini_options]` instead.
+`[tool.uv] package = false` in `pyproject.toml`) — `app.py` lives at the repo root and `src/`
+is a regular package (`src/__init__.py`), so both `uvicorn app:create_app` and `pytest` work
+from the repo root with no `PYTHONPATH` juggling (pytest gets it from
+`[tool.pytest.ini_options]` instead).
 
 ```bash
 make install     # uv sync: creates .venv, installs runtime + dev deps from uv.lock
@@ -117,6 +127,52 @@ can update its persona or documents without a rebuild — the `COPY config/ cont
 the `Dockerfile` just mean the image also works standalone (e.g. `docker run` without the
 mounts) with whatever was in the repo at build time.
 
+## Deploying to Cloud Run
+
+`deploy.sh` (`make deploy`) deploys straight from source with
+[`gcloud run deploy --source=.`](https://cloud.google.com/run) — Cloud Build builds the
+`Dockerfile` and pushes it for you, no manual `docker push` or Artifact Registry setup
+needed. `config/site.yaml` and `context/` get baked into the image at build time (Cloud Run
+has no bind mounts), so both need to exist and be filled in locally before deploying.
+
+`GCP_PROJECT_ID` and `ALLOWED_ORIGINS` come from `.env` — `deploy.sh` refuses to run if
+either is missing there, so a deploy never silently goes out under the wrong project or the
+wrong CORS origin (CORS matches on `scheme://host[:port]` only, so `/projects` and `/contact`
+are covered automatically once the origin is right - no need to list them separately).
+`GCP_REGION`, `SERVICE_NAME`, and `SECRET_NAME` have defaults (see the comment block at the
+top of `deploy.sh`) but can be overridden the same way, either in `.env` or ad hoc:
+
+```bash
+GCP_REGION=europe-southwest1 make deploy
+```
+
+One-time setup:
+
+```bash
+cp .env.example .env   # then fill in ANTHROPIC_API_KEY, GCP_PROJECT_ID, ALLOWED_ORIGINS
+gcloud auth login
+gcloud config set project "$(grep GCP_PROJECT_ID .env | cut -d= -f2)"
+
+gcloud services enable run.googleapis.com cloudbuild.googleapis.com \
+  artifactregistry.googleapis.com secretmanager.googleapis.com \
+  --project="$(grep GCP_PROJECT_ID .env | cut -d= -f2)"
+
+# ANTHROPIC_API_KEY is injected from Secret Manager, not passed as a plain env var, so it
+# never shows up in `gcloud run services describe` or the Cloud Run console.
+export $(grep ANTHROPIC_API_KEY .env)
+printf '%s' "$ANTHROPIC_API_KEY" | gcloud secrets create ask-my-site-anthropic-api-key \
+  --project="$(grep GCP_PROJECT_ID .env | cut -d= -f2)" --data-file=-
+```
+
+Then, any time you want to (re)deploy:
+
+```bash
+cp config/site.example.yaml config/site.yaml   # first time only - then fill it in
+make deploy
+```
+
+The script prints the service's public URL once the deploy finishes.
+
 ## Calling it from a website
 
 CORS is enabled via `ALLOWED_ORIGINS` (comma-separated in `.env`), so a browser-side chat
@@ -135,20 +191,17 @@ No frontend widget ships in this repo yet — see Open items.
 
 ## Open items before this goes beyond a local draft
 
-1. **No deployment story yet.** This repo only covers the backend; where it actually runs
-   (Cloud Run, Fly.io, a VPS, etc.) and how `config/site.yaml`/`context/` get onto that host
-   are still open.
-2. **No frontend widget.** Any site calling this today has to write its own `fetch` call and
+1. **No frontend widget.** Any site calling this today has to write its own `fetch` call and
    chat UI against `POST /chat` — a small embeddable widget (script tag, like GoatCounter's)
    would make this a genuine drop-in template.
-3. **Only `.md`/`.txt` are ingested.** PDFs (a CV export, say) need a text-extraction step
-   added to `context/loader.py` before they're usable as context.
-4. **No conversation persistence.** `history` is passed in by the caller on every request and
+2. **Only `.md`/`.txt` are ingested.** PDFs (a CV export, say) need a text-extraction step
+   added to `src/infrastructure/context_loader.py` before they're usable as context.
+3. **No conversation persistence.** `history` is passed in by the caller on every request and
    kept nowhere server-side — fine for a stateless widget, not for anything wanting
    cross-session memory.
-5. **No rate limiting or abuse protection** on `POST /chat` — a public endpoint that spends
+4. **No rate limiting or abuse protection** on `POST /chat` — a public endpoint that spends
    API credits per call needs this before it's pointed at real traffic.
-6. **Single, non-streaming Claude call.** `ClaudeAssistant.reply()` waits for the full
+5. **Single, non-streaming Claude call.** `ClaudeAssistant.reply()` waits for the full
    response before returning; streaming would improve perceived latency for longer answers.
-7. **BM25 retrieval, not embeddings** — see "How a question gets answered" above. Revisit if
+6. **BM25 retrieval, not embeddings** — see "How a question gets answered" above. Revisit if
    `context/` grows past what keyword overlap can rank well.

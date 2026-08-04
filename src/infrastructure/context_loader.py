@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from context.models import Chunk
+from src.domain.models.entities import Chunk
 
 # Plain-text formats only for now - a PDF/HTML loader can be added here later without
 # touching anything downstream, since everything past this module only deals in Chunks.

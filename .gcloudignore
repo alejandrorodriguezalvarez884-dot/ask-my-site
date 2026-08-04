@@ -1,0 +1,30 @@
+# Controls what `gcloud run deploy --source=.` uploads to Cloud Build.
+#
+# IMPORTANT: presence of this file makes gcloud ignore .gitignore entirely for the source
+# upload - without it, gcloud falls back to .gitignore, which excludes config/site.yaml and
+# context/* (real deployment content, gitignored on purpose so it never gets committed) and
+# they silently never reach the image, even though `docker build` locally works fine.
+# config/site.yaml and context/ are deliberately NOT excluded here - they need to be baked
+# into the image (see Dockerfile / README "Deploying to Cloud Run").
+
+.git/
+.gitignore
+.gcloudignore
+
+__pycache__/
+*.pyc
+*.egg-info/
+.venv/
+venv/
+
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+tests/
+
+.env
+Thumbs.db
+desktop.ini
+.DS_Store
+.vscode/
+.idea/

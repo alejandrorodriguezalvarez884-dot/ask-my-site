@@ -2,7 +2,8 @@ import re
 
 from rank_bm25 import BM25Okapi
 
-from context.models import Chunk, Retriever
+from src.domain.models.entities import Chunk
+from src.domain.retriever import Retriever
 
 _TOKEN_RE = re.compile(r"[a-zA-Z0-9]+")
 

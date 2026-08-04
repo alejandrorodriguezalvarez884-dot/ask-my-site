@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from context.loader import load_context_documents
+from src.infrastructure.context_loader import load_context_documents
 
 
 def test_loads_and_chunks_markdown_files(tmp_path: Path) -> None:

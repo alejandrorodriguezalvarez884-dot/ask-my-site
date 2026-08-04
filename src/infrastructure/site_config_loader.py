@@ -2,7 +2,7 @@ from pathlib import Path
 
 import yaml
 
-from assistant.models import SiteConfig
+from src.domain.models.entities import SiteConfig
 
 
 def load_site_config(path: Path) -> SiteConfig:

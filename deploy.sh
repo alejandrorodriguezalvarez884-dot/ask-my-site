@@ -1,0 +1,65 @@
+#!/bin/bash
+set -euo pipefail
+
+# Deploys ask-my-site to Google Cloud Run.
+#
+# Usage: ./deploy.sh
+#
+# GCP_PROJECT_ID and ALLOWED_ORIGINS are read from .env - required, no fallback default,
+# so a deploy never silently goes out under the wrong project or the wrong CORS origin.
+# The rest have sensible defaults, overridable via environment variables:
+#   GCP_REGION       (default: europe-west1)
+#   SERVICE_NAME     (default: ask-my-site)
+#   SECRET_NAME      (default: ask-my-site-anthropic-api-key)
+#
+# One-time setup before the first run (see README "Deploying to Cloud Run"):
+#   - gcloud auth login
+#   - gcloud config set project "$GCP_PROJECT_ID"
+#   - Required APIs enabled: run, cloudbuild, artifactregistry, secretmanager
+#   - The ANTHROPIC_API_KEY secret created in Secret Manager
+#   - config/site.yaml filled in and context/ populated locally - both get baked into the
+#     image by `gcloud run deploy --source=.` (Cloud Run has no bind mounts)
+
+if [[ ! -f .env ]]; then
+    echo "Error: .env not found. Copy .env.example to .env and fill in GCP_PROJECT_ID and"
+    echo "ALLOWED_ORIGINS (and ANTHROPIC_API_KEY, for local runs) first."
+    exit 1
+fi
+set -a
+# shellcheck disable=SC1091
+source .env
+set +a
+
+: "${GCP_PROJECT_ID:?GCP_PROJECT_ID is not set in .env - deploy refuses to guess a project.}"
+: "${ALLOWED_ORIGINS:?ALLOWED_ORIGINS is not set in .env - deploy refuses to guess the site origin.}"
+
+GCP_REGION="${GCP_REGION:-europe-west1}"
+SERVICE_NAME="${SERVICE_NAME:-ask-my-site}"
+SECRET_NAME="${SECRET_NAME:-ask-my-site-anthropic-api-key}"
+
+if [[ ! -f config/site.yaml ]]; then
+    echo "Error: config/site.yaml not found. Copy config/site.example.yaml to config/site.yaml"
+    echo "and fill it in - it gets baked into the image, so it has to exist before deploying."
+    exit 1
+fi
+
+echo "Deploying $SERVICE_NAME to Cloud Run"
+echo "  Project:          $GCP_PROJECT_ID"
+echo "  Region:           $GCP_REGION"
+echo "  Allowed origins:  $ALLOWED_ORIGINS"
+echo ""
+
+gcloud run deploy "$SERVICE_NAME" \
+    --source=. \
+    --project="$GCP_PROJECT_ID" \
+    --region="$GCP_REGION" \
+    --allow-unauthenticated \
+    --set-env-vars="ALLOWED_ORIGINS=$ALLOWED_ORIGINS" \
+    --set-secrets="ANTHROPIC_API_KEY=$SECRET_NAME:latest"
+
+echo ""
+echo "Deployed. Service URL:"
+gcloud run services describe "$SERVICE_NAME" \
+    --project="$GCP_PROJECT_ID" \
+    --region="$GCP_REGION" \
+    --format="value(status.url)"
