@@ -16,6 +16,12 @@ class Settings(BaseSettings):
     context_dir: Path = Path("context")
     top_k: int = 5
 
+    # Off by default so local dev/tests never need Firestore credentials. When on, each chat
+    # exchange is written to the Firestore collection below via Application Default
+    # Credentials (see src/infrastructure/firestore_chat_store.py).
+    save_conversations: bool = False
+    chat_store_collection: str = "conversations"
+
     @property
     def allowed_origins_list(self) -> list[str]:
         return [

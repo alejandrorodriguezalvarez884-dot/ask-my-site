@@ -6,8 +6,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from src.controllers import router
 from src.infrastructure.bm25_retriever import BM25Retriever
 from src.infrastructure.context_loader import load_context_documents
+from src.infrastructure.firestore_chat_store import FirestoreChatStore
 from src.infrastructure.llm_client import ClaudeAssistant
 from src.infrastructure.logging_config import configure_logging
+from src.infrastructure.null_chat_store import NullChatStore
 from src.infrastructure.settings import Settings
 from src.infrastructure.site_config_loader import load_site_config
 
@@ -42,6 +44,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.retriever = retriever
     app.state.assistant = ClaudeAssistant(
         api_key=settings.anthropic_api_key, model=settings.anthropic_model
+    )
+    app.state.chat_store = (
+        FirestoreChatStore(collection=settings.chat_store_collection)
+        if settings.save_conversations
+        else NullChatStore()
     )
 
     app.include_router(router)

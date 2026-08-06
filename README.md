@@ -66,14 +66,17 @@ src/
       entities.py         # SiteConfig, ChatTurn, Chunk, ChatRequest, ChatResponse
     persona.py             # build_system_prompt(): persona + retrieved chunks -> system prompt
     retriever.py           # Retriever interface
+    chat_store.py           # ChatStore interface
     repositories/
-      chat_repository.py  # business logic: retrieval + prompt assembly + the LLM call
+      chat_repository.py  # business logic: retrieval + prompt assembly + the LLM call + save
   infrastructure/
     settings.py            # Settings: env vars (ANTHROPIC_API_KEY, ALLOWED_ORIGINS, etc.)
     site_config_loader.py  # load_site_config(): reads config/site.yaml
     context_loader.py      # load_context_documents(): reads context/ into Chunks
     bm25_retriever.py      # BM25Retriever: the default Retriever implementation
     llm_client.py          # ClaudeAssistant: the only module that calls the Anthropic API
+    firestore_chat_store.py # FirestoreChatStore: saves each exchange to Firestore
+    null_chat_store.py      # NullChatStore: no-op, used when SAVE_CONVERSATIONS is off
     logging_config.py      # configure_logging()
   service_layer/
     chat_service.py        # thin orchestration: unpacks the request, packs the response
@@ -189,6 +192,37 @@ const { reply } = await response.json();
 
 No frontend widget ships in this repo yet — see Open items.
 
+## Persisting conversations
+
+The API itself stays stateless — `history` is still passed in by the caller on every
+request — but when `SAVE_CONVERSATIONS=true`, `ChatRepository` writes each exchange
+(message, reply, the history it was answered against, and a timestamp) to a Firestore
+collection (`CHAT_STORE_COLLECTION`, default `conversations`) right after the Claude call
+succeeds. `FirestoreChatStore` swallows and logs write failures rather than raising, so a
+Firestore outage never breaks the chat feature itself. There's no session id today (the
+frontend doesn't send one), so each write is a standalone document; since every request
+carries the full history so far, the last write of a browser session holds the fullest
+transcript.
+
+One-time setup, in addition to the APIs enabled above:
+
+```bash
+gcloud services enable firestore.googleapis.com --project="$GCP_PROJECT_ID"
+
+# Native mode, once per project - skip if a Firestore database already exists.
+gcloud firestore databases create --project="$GCP_PROJECT_ID" --location="$GCP_REGION"
+
+# Lets the Cloud Run service account read/write Firestore.
+PROJECT_NUMBER="$(gcloud projects describe "$GCP_PROJECT_ID" --format='value(projectNumber)')"
+gcloud projects add-iam-policy-binding "$GCP_PROJECT_ID" \
+  --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
+  --role="roles/datastore.user"
+```
+
+Then set `SAVE_CONVERSATIONS=true` in `.env` before `make deploy` (or export it ad hoc, same
+as `GCP_REGION` above). Locally, it also needs credentials Firestore can use —
+`gcloud auth application-default login` — so it's left off by default for local dev.
+
 ## Open items before this goes beyond a local draft
 
 1. **No frontend widget.** Any site calling this today has to write its own `fetch` call and
@@ -196,12 +230,9 @@ No frontend widget ships in this repo yet — see Open items.
    would make this a genuine drop-in template.
 2. **Only `.md`/`.txt` are ingested.** PDFs (a CV export, say) need a text-extraction step
    added to `src/infrastructure/context_loader.py` before they're usable as context.
-3. **No conversation persistence.** `history` is passed in by the caller on every request and
-   kept nowhere server-side — fine for a stateless widget, not for anything wanting
-   cross-session memory.
-4. **No rate limiting or abuse protection** on `POST /chat` — a public endpoint that spends
+3. **No rate limiting or abuse protection** on `POST /chat` — a public endpoint that spends
    API credits per call needs this before it's pointed at real traffic.
-5. **Single, non-streaming Claude call.** `ClaudeAssistant.reply()` waits for the full
+4. **Single, non-streaming Claude call.** `ClaudeAssistant.reply()` waits for the full
    response before returning; streaming would improve perceived latency for longer answers.
-6. **BM25 retrieval, not embeddings** — see "How a question gets answered" above. Revisit if
+5. **BM25 retrieval, not embeddings** — see "How a question gets answered" above. Revisit if
    `context/` grows past what keyword overlap can rank well.

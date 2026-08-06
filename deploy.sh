@@ -12,10 +12,15 @@ set -euo pipefail
 #   SERVICE_NAME     (default: ask-my-site)
 #   SECRET_NAME      (default: ask-my-site-anthropic-api-key)
 #
+# SAVE_CONVERSATIONS and CHAT_STORE_COLLECTION are also read from .env (defaulting to
+# false/conversations if unset there) and passed through - see README "Persisting
+# conversations" before setting SAVE_CONVERSATIONS=true.
+#
 # One-time setup before the first run (see README "Deploying to Cloud Run"):
 #   - gcloud auth login
 #   - gcloud config set project "$GCP_PROJECT_ID"
 #   - Required APIs enabled: run, cloudbuild, artifactregistry, secretmanager
+#     (add firestore if SAVE_CONVERSATIONS=true - see README)
 #   - The ANTHROPIC_API_KEY secret created in Secret Manager
 #   - config/site.yaml filled in and context/ populated locally - both get baked into the
 #     image by `gcloud run deploy --source=.` (Cloud Run has no bind mounts)
@@ -36,6 +41,8 @@ set +a
 GCP_REGION="${GCP_REGION:-europe-west1}"
 SERVICE_NAME="${SERVICE_NAME:-ask-my-site}"
 SECRET_NAME="${SECRET_NAME:-ask-my-site-anthropic-api-key}"
+SAVE_CONVERSATIONS="${SAVE_CONVERSATIONS:-false}"
+CHAT_STORE_COLLECTION="${CHAT_STORE_COLLECTION:-conversations}"
 
 if [[ ! -f config/site.yaml ]]; then
     echo "Error: config/site.yaml not found. Copy config/site.example.yaml to config/site.yaml"
@@ -54,7 +61,7 @@ gcloud run deploy "$SERVICE_NAME" \
     --project="$GCP_PROJECT_ID" \
     --region="$GCP_REGION" \
     --allow-unauthenticated \
-    --set-env-vars="ALLOWED_ORIGINS=$ALLOWED_ORIGINS" \
+    --set-env-vars="ALLOWED_ORIGINS=$ALLOWED_ORIGINS,SAVE_CONVERSATIONS=$SAVE_CONVERSATIONS,CHAT_STORE_COLLECTION=$CHAT_STORE_COLLECTION" \
     --set-secrets="ANTHROPIC_API_KEY=$SECRET_NAME:latest"
 
 echo ""

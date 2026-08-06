@@ -18,6 +18,7 @@ def chat(payload: ChatRequest, request: Request) -> ChatResponse:
     repository = ChatRepository(
         retriever=request.app.state.retriever,
         assistant=request.app.state.assistant,
+        chat_store=request.app.state.chat_store,
         site_config=request.app.state.site_config,
         top_k=settings.top_k,
     )
