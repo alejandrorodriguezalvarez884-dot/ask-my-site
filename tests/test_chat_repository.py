@@ -19,10 +19,12 @@ class _StubAssistant:
 
 class _RecordingChatStore(ChatStore):
     def __init__(self) -> None:
-        self.saved: list[tuple[str, str, list[ChatTurn]]] = []
+        self.saved: list[tuple[str, str, str, list[ChatTurn]]] = []
 
-    def save_turn(self, message: str, reply: str, history: list[ChatTurn]) -> None:
-        self.saved.append((message, reply, history))
+    def save_turn(
+        self, session_id: str, message: str, reply: str, history: list[ChatTurn]
+    ) -> None:
+        self.saved.append((session_id, message, reply, history))
 
 
 def _make_repository(chat_store: ChatStore) -> ChatRepository:
@@ -40,15 +42,15 @@ def test_get_reply_saves_the_turn_after_answering() -> None:
     repository = _make_repository(chat_store)
     history = [ChatTurn(role="user", content="hi")]
 
-    reply = repository.get_reply("Who are you?", history)
+    reply = repository.get_reply("session-1", "Who are you?", history)
 
     assert reply == "stub reply to: Who are you?"
-    assert chat_store.saved == [("Who are you?", reply, history)]
+    assert chat_store.saved == [("session-1", "Who are you?", reply, history)]
 
 
 def test_get_reply_works_with_the_default_null_store() -> None:
     repository = _make_repository(NullChatStore())
 
-    reply = repository.get_reply("Who are you?", [])
+    reply = repository.get_reply("session-1", "Who are you?", [])
 
     assert reply == "stub reply to: Who are you?"

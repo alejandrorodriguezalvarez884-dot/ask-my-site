@@ -7,5 +7,7 @@ class NullChatStore(ChatStore):
     tests never need Firestore credentials.
     """
 
-    def save_turn(self, message: str, reply: str, history: list[ChatTurn]) -> None:
+    def save_turn(
+        self, session_id: str, message: str, reply: str, history: list[ChatTurn]
+    ) -> None:
         pass

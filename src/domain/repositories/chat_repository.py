@@ -25,9 +25,9 @@ class ChatRepository:
         self._site_config = site_config
         self._top_k = top_k
 
-    def get_reply(self, message: str, history: list[ChatTurn]) -> str:
+    def get_reply(self, session_id: str, message: str, history: list[ChatTurn]) -> str:
         context_chunks = self._retriever.search(message, top_k=self._top_k)
         system_prompt = build_system_prompt(self._site_config, context_chunks)
         reply = self._assistant.reply(system_prompt, history, message)
-        self._chat_store.save_turn(message, reply, history)
+        self._chat_store.save_turn(session_id, message, reply, history)
         return reply

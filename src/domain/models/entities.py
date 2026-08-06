@@ -34,7 +34,13 @@ class Chunk:
 class ChatRequest(BaseModel):
     message: str = Field(min_length=1)
     history: list[ChatTurn] = Field(default_factory=list)
+    # Optional: the caller (chat widget) should generate one uuid4 per browser conversation
+    # and resend it on every request. If omitted, the server mints one and returns it in
+    # ChatResponse so a caller that doesn't track sessions still gets a working id back -
+    # though since it won't resend it, each of its requests ends up as its own session.
+    session_id: str | None = None
 
 
 class ChatResponse(BaseModel):
     reply: str
+    session_id: str

@@ -114,8 +114,10 @@ make run         # same, without --reload (respects $PORT)
 ```
 
 `GET /health` returns `{"status": "ok"}`. `POST /chat` expects
-`{"message": "...", "history": [{"role": "user" | "assistant", "content": "..."}]}` and
-returns `{"reply": "..."}`.
+`{"message": "...", "history": [{"role": "user" | "assistant", "content": "..."}], "session_id": "..."}`
+(`session_id` is optional) and returns `{"reply": "...", "session_id": "..."}` - if the
+request didn't include one, the response carries the one the server minted so the caller can
+resend it on the conversation's later turns (see "Persisting conversations" below).
 
 ## Running in Docker
 
@@ -182,12 +184,21 @@ CORS is enabled via `ALLOWED_ORIGINS` (comma-separated in `.env`), so a browser-
 widget on an allowed origin can call `POST /chat` directly:
 
 ```js
+// Reuse the same session_id for every message in one conversation so persisted
+// transcripts (see "Persisting conversations" below) land in a single Firestore document.
+let sessionId = sessionStorage.getItem("ask-my-site-session-id");
+
 const response = await fetch("https://your-ask-my-site-deployment/chat", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ message: "What projects have you built?", history: [] }),
+  body: JSON.stringify({
+    message: "What projects have you built?",
+    history: [],
+    session_id: sessionId,
+  }),
 });
-const { reply } = await response.json();
+const { reply, session_id } = await response.json();
+sessionStorage.setItem("ask-my-site-session-id", session_id);
 ```
 
 No frontend widget ships in this repo yet — see Open items.
@@ -195,14 +206,21 @@ No frontend widget ships in this repo yet — see Open items.
 ## Persisting conversations
 
 The API itself stays stateless — `history` is still passed in by the caller on every
-request — but when `SAVE_CONVERSATIONS=true`, `ChatRepository` writes each exchange
-(message, reply, the history it was answered against, and a timestamp) to a Firestore
-collection (`CHAT_STORE_COLLECTION`, default `conversations`) right after the Claude call
-succeeds. `FirestoreChatStore` swallows and logs write failures rather than raising, so a
-Firestore outage never breaks the chat feature itself. There's no session id today (the
-frontend doesn't send one), so each write is a standalone document; since every request
-carries the full history so far, the last write of a browser session holds the fullest
-transcript.
+request — but when `SAVE_CONVERSATIONS=true`, `ChatRepository` upserts one Firestore
+document per conversation, keyed by `session_id`, right after the Claude call succeeds. Each
+save replaces the document's `history` field with the full transcript so far (the incoming
+history plus the new message/reply) and bumps `updated_at`; `created_at` is set once, on the
+first turn. A conversation therefore lives in a single, growing document instead of one new
+document per turn — much easier to read in the Firestore console or query later. Writes go
+to the collection named by `CHAT_STORE_COLLECTION` (default `conversations`).
+`FirestoreChatStore` swallows and logs write failures rather than raising, so a Firestore
+outage never breaks the chat feature itself.
+
+`session_id` is optional on the request - the server mints a `uuid4` and returns it if the
+caller doesn't send one - but a caller has to actually resend the same id on every message
+for this to pay off; otherwise each request mints (and persists under) a fresh one. See
+"Calling it from a website" above for the pattern (store it in `sessionStorage`, send it back
+on every call).
 
 One-time setup, in addition to the APIs enabled above:
 

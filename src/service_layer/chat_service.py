@@ -1,3 +1,5 @@
+import uuid
+
 from src.domain.models.entities import ChatRequest, ChatResponse
 from src.domain.repositories.chat_repository import ChatRepository
 
@@ -11,5 +13,8 @@ class ChatService:
         self._repository = repository
 
     def answer(self, request: ChatRequest) -> ChatResponse:
-        reply = self._repository.get_reply(request.message, request.history)
-        return ChatResponse(reply=reply)
+        # First message of a conversation won't have one yet; mint it here and hand it back
+        # so the caller can resend it on every later message in the same conversation.
+        session_id = request.session_id or str(uuid.uuid4())
+        reply = self._repository.get_reply(session_id, request.message, request.history)
+        return ChatResponse(reply=reply, session_id=session_id)

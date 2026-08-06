@@ -49,6 +49,26 @@ def test_chat_returns_a_reply(tmp_path: Path) -> None:
     assert response.json()["reply"] == "stub reply to: Who are you?"
 
 
+def test_chat_mints_a_session_id_when_none_is_sent(tmp_path: Path) -> None:
+    client = _make_client(tmp_path)
+
+    response = client.post("/chat", json={"message": "Who are you?"})
+
+    assert response.status_code == 200
+    assert response.json()["session_id"]
+
+
+def test_chat_echoes_back_a_provided_session_id(tmp_path: Path) -> None:
+    client = _make_client(tmp_path)
+
+    response = client.post(
+        "/chat", json={"message": "Who are you?", "session_id": "my-session"}
+    )
+
+    assert response.status_code == 200
+    assert response.json()["session_id"] == "my-session"
+
+
 def test_chat_rejects_empty_message(tmp_path: Path) -> None:
     client = _make_client(tmp_path)
 
