@@ -216,6 +216,13 @@ to the collection named by `CHAT_STORE_COLLECTION` (default `conversations`).
 `FirestoreChatStore` swallows and logs write failures rather than raising, so a Firestore
 outage never breaks the chat feature itself.
 
+Each document also carries `preview` (the opening message, truncated to 100 chars),
+`turn_count`, `created_at`, and `updated_at`, specifically so the collection is readable from
+Firestore console's default table view without opening a single document: `preview` tells
+conversations apart at a glance instead of showing a bare `session_id`, and clicking the
+`updated_at` (or `created_at`) column header sorts the table by recency — a plain
+single-field sort, so it works with no index setup.
+
 `session_id` is optional on the request - the server mints a `uuid4` and returns it if the
 caller doesn't send one - but a caller has to actually resend the same id on every message
 for this to pay off; otherwise each request mints (and persists under) a fresh one. See
