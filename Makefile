@@ -1,4 +1,4 @@
-.PHONY: install test lint format dev run build docker-run deploy
+.PHONY: install test lint format dev run build docker-run deploy content-pull content-push
 
 install:
 	uv sync
@@ -29,3 +29,9 @@ docker-run: build
 
 deploy:
 	./deploy.sh
+
+content-pull:
+	./content.sh pull
+
+content-push:
+	./content.sh push

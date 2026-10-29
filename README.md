@@ -20,7 +20,8 @@ per deployment, not run as-is against real traffic yet — see "Open items" belo
    per question.
 2. Drop `.md`/`.txt` files into `context/` (subdirectories are fine) — anything you want
    the assistant to be able to answer questions about. Both `config/site.yaml` and
-   `context/*` are gitignored, so a deployment's real content never has to live in this repo.
+   `context/*` are gitignored, so a deployment's real content never has to live in this repo:
+   it lives in a Cloud Storage bucket instead (see "Content" below).
 3. `cp .env.example .env`, set `ANTHROPIC_API_KEY`, and set `ALLOWED_ORIGINS` to the
    origin(s) of the site(s) that will call this API from the browser.
 4. Run it (see "Running locally" / "Running in Docker" below) and point your frontend's
@@ -73,6 +74,7 @@ src/
     settings.py            # Settings: env vars (ANTHROPIC_API_KEY, ALLOWED_ORIGINS, etc.)
     site_config_loader.py  # load_site_config(): reads config/site.yaml
     context_loader.py      # load_context_documents(): reads context/ into Chunks
+    gcs_content.py         # download_content(): copies the content bucket to a local dir
     bm25_retriever.py      # BM25Retriever: the default Retriever implementation
     llm_client.py          # ClaudeAssistant: the only module that calls the Anthropic API
     firestore_chat_store.py # FirestoreChatStore: saves each exchange to Firestore
@@ -82,8 +84,10 @@ src/
     chat_service.py        # thin orchestration: unpacks the request, packs the response
 tests/               # Unit tests - no live network calls (ClaudeAssistant is stubbed
                      # out in test_routes.py; nothing else touches the network)
-Dockerfile           # uv-managed image; config/ and context/ are usually bind-mounted
-                     # in at runtime instead of baked in (see `make docker-run`)
+Dockerfile           # uv-managed image; config/ and context/ are bind-mounted locally
+                     # (see `make docker-run`) or downloaded from the bucket on Cloud Run
+deploy.sh            # `make deploy`: builds and deploys to Cloud Run
+content.sh           # `make content-pull` / `make content-push`: syncs the content bucket
 ```
 
 Layered architecture: `controllers` (HTTP) call `service_layer` (unpack/pack request-response
@@ -132,13 +136,50 @@ can update its persona or documents without a rebuild — the `COPY config/ cont
 the `Dockerfile` just mean the image also works standalone (e.g. `docker run` without the
 mounts) with whatever was in the repo at build time.
 
+## Content
+
+`config/site.yaml` and `context/` live in a private Cloud Storage bucket, by default
+`<GCP_PROJECT_ID>-ask-my-site` (override with `CONTENT_BUCKET`). The bucket mirrors the
+repo layout (`config/site.yaml`, `context/*.md`), has object versioning on, and is the only
+copy that counts: on Cloud Run the service downloads it at startup (`CONTENT_BUCKET` is set
+by `deploy.sh`), and `.gcloudignore` keeps local copies out of the image. That way the
+content follows you to any computer with `gcloud` access, even though it's not in git.
+
+```bash
+make content-pull   # bucket -> config/site.yaml and context/ (first thing on a new computer)
+# ...edit the files...
+make content-push   # local files -> bucket, then restarts the service so it reloads them
+```
+
+`content-push` mirrors `context/`, deletes included, and refuses to run if the local files
+are missing, so pull before you edit on a computer that may be out of date. A restart rolls a
+new revision of the same image (no rebuild, under a minute). Locally, `make dev` keeps reading
+the local files unless you set `CONTENT_BUCKET` in `.env`.
+
+One-time setup of the bucket (already done for this deployment):
+
+```bash
+P="$(grep GCP_PROJECT_ID .env | cut -d= -f2)"
+gcloud storage buckets create "gs://$P-ask-my-site" --project="$P" --location=europe-west1 \
+  --uniform-bucket-level-access --public-access-prevention
+gcloud storage buckets update "gs://$P-ask-my-site" --versioning
+# Read access for the account the Cloud Run service runs as (the default compute one here):
+SA="$(gcloud run services describe ask-my-site --project="$P" --region=europe-west1 \
+  --format='value(spec.template.spec.serviceAccountName)')"
+gcloud storage buckets add-iam-policy-binding "gs://$P-ask-my-site" \
+  --member="serviceAccount:$SA" --role=roles/storage.objectViewer
+make content-push
+```
+
 ## Deploying to Cloud Run
 
 `deploy.sh` (`make deploy`) deploys straight from source with
 [`gcloud run deploy --source=.`](https://cloud.google.com/run) — Cloud Build builds the
 `Dockerfile` and pushes it for you, no manual `docker push` or Artifact Registry setup
-needed. `config/site.yaml` and `context/` get baked into the image at build time (Cloud Run
-has no bind mounts), so both need to exist and be filled in locally before deploying.
+needed. The persona and context are not part of the image: the service reads them from the
+content bucket at startup (see "Content" above), and `deploy.sh` refuses to run if
+`config/site.yaml` isn't in that bucket. Content-only changes need `make content-push`, not
+a deploy.
 
 `GCP_PROJECT_ID` and `ALLOWED_ORIGINS` come from `.env` — `deploy.sh` refuses to run if
 either is missing there, so a deploy never silently goes out under the wrong project or the
@@ -172,8 +213,7 @@ printf '%s' "$ANTHROPIC_API_KEY" | gcloud secrets create ask-my-site-anthropic-a
 Then, any time you want to (re)deploy:
 
 ```bash
-cp config/site.example.yaml config/site.yaml   # first time only - then fill it in
-make deploy
+make deploy   # code changes; content changes only need `make content-push`
 ```
 
 The script prints the service's public URL once the deploy finishes.

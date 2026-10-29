@@ -16,9 +16,10 @@ ENV PATH="/app/.venv/bin:$PATH"
 
 EXPOSE 8000
 
-# config/site.yaml and context/ can be bind-mounted at runtime (see `make docker-run`),
-# overriding whatever was baked in from the COPY above - handy for local Docker testing.
-# Cloud Run has no bind mounts, so a Cloud Run deploy relies on the baked-in copies instead.
+# Local Docker runs bind-mount config/ and context/ (see `make docker-run`). On Cloud Run
+# CONTENT_BUCKET is set and the app downloads both from Cloud Storage at startup instead;
+# .gcloudignore keeps the real files out of the image, so the COPYs above only carry
+# site.example.yaml and context/.gitkeep there.
 #
 # Shell form (not exec form) so $PORT expands - Cloud Run injects it and expects the
 # container to listen on it (defaults to 8080 there; 8000 here matches `make docker-run`).

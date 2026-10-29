@@ -14,6 +14,10 @@ class Settings(BaseSettings):
 
     site_config_path: Path = Path("config/site.yaml")
     context_dir: Path = Path("context")
+    # When set, config/site.yaml and context/ are downloaded from this Cloud Storage bucket
+    # at startup instead of read from the two local paths above (see gcs_content.py). Set on
+    # Cloud Run by deploy.sh; left empty locally so dev and tests stay offline.
+    content_bucket: str = ""
     top_k: int = 5
 
     # Off by default so local dev/tests never need Firestore credentials. When on, each chat

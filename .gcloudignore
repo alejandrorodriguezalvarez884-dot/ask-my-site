@@ -1,11 +1,15 @@
 # Controls what `gcloud run deploy --source=.` uploads to Cloud Build.
 #
-# IMPORTANT: presence of this file makes gcloud ignore .gitignore entirely for the source
-# upload - without it, gcloud falls back to .gitignore, which excludes config/site.yaml and
-# context/* (real deployment content, gitignored on purpose so it never gets committed) and
-# they silently never reach the image, even though `docker build` locally works fine.
-# config/site.yaml and context/ are deliberately NOT excluded here - they need to be baked
-# into the image (see Dockerfile / README "Deploying to Cloud Run").
+# Presence of this file makes gcloud ignore .gitignore entirely for the source upload, so
+# every exclusion has to be listed here.
+#
+# config/site.yaml and context/* are excluded: on Cloud Run the service downloads them from
+# the content bucket at startup (README "Content"), so the bucket is the only copy that
+# counts and a stale local file can never end up in the image. context/.gitkeep stays so the
+# Dockerfile's `COPY context/` still has a directory to copy.
+config/site.yaml
+context/*
+!context/.gitkeep
 
 .git/
 .gitignore
